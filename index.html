@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parte de Trabajos — Refrigeración</title>
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    body { background:#f8fafc; color:#0f172a; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-3xl mx-auto p-4 sm:p-6">
+    <header class="mb-6">
+      <h1 class="text-2xl sm:text-3xl font-bold">Parte de Trabajos — Refrigeración</h1>
+      <p class="text-sm text-slate-500">Encabezado con Cliente y Responsable arriba. PDF ajustado a una hoja A4 desde el borde superior.</p>
+    </header>
+
+    <section class="bg-white rounded-2xl shadow p-4 sm:p-6 mb-6">
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium">Proveedor / Responsable</label>
+          <input id="proveedor" type="text" placeholder="Nombre y apellido" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">CUIT</label>
+          <input id="cuit" type="text" placeholder="20-00000000-0" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Cliente</label>
+          <input id="cliente" type="text" placeholder="Empresa / Persona" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Fecha</label>
+          <input id="fecha" type="date" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium">Logo (opcional)</label>
+          <input id="logoFile" type="file" accept="image/*" class="mt-1 w-full rounded-xl border border-slate-300 p-2" />
+          <p class="text-xs text-slate-500 mt-1">Se guarda localmente y se inserta en el PDF.</p>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium">Trabajos realizados</label>
+          <button id="btnAgregarItem" class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">+ Agregar ítem</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm" id="tabla">
+            <thead>
+              <tr class="text-left text-slate-500">
+                <th class="py-2">Sector</th>
+                <th class="py-2">Trabajo</th>
+                <th class="py-2">Importe ($)</th>
+                <th class="py-2"> </th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+            <tfoot>
+              <tr class="border-t">
+                <td colspan="2" class="py-2 text-right font-semibold">TOTAL</td>
+                <td class="py-2 font-bold" id="totalCell">$ 0</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col sm:flex-row gap-3">
+        <button id="btnGuardar" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white font-medium hover:bg-slate-700">Guardar en historial</button>
+        <button id="btnPDF" class="flex-1 px-4 py-2 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-500">Generar PDF</button>
+        <button id="btnWhatsApp" class="flex-1 px-4 py-2 rounded-xl bg-green-600 text-white font-medium hover:bg-green-500">Enviar por WhatsApp</button>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">Los datos se quedan en este dispositivo (LocalStorage). El PDF usa encabezado Cliente/Responsable/Fecha arriba.</p>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Historial local</h2>
+        <div class="flex gap-2">
+          <button id="btnExportarJson" class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm">Exportar JSON</button>
+          <button id="btnBorrarHist" class="px-3 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 text-sm">Vaciar</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-slate-500">
+              <th class="py-2">Fecha</th>
+              <th class="py-2">Cliente</th>
+              <th class="py-2">Total</th>
+              <th class="py-2">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyHist"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-400 mt-6">Hecho con ❤️ y JavaScript — Funciona offline</footer>
+  </div>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  const todayISO = () => new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().split('T')[0];
+  const fmtMoney = (n) => new Intl.NumberFormat('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }).format(n || 0);
+  const esc = (s) => String(s||'').replace(/[&<>]/g, c => ({'&':'&','<':'<','>':'>'}[c]));
+
+  const LS_KEY = 'partes_refrigeracion_v2';
+  const LS_LOGO = 'parte_logo_v1';
+
+  $('#fecha').value = todayISO();
+
+  document.addEventListener('change', async (ev) => {
+    if (ev.target && ev.target.id === 'logoFile') {
+      const f = ev.target.files?.[0];
+      if (!f) return;
+      const dataUrl = await fileToDataURLResized(f, 800);
+      localStorage.setItem(LS_LOGO, dataUrl);
+      alert('Logo guardado en este dispositivo.');
+    }
+  });
+
+  function fileToDataURLResized(file, maxW) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxW / img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const tbody = $('#tbody');
+  function addRow(item = { sector:'', desc:'', importe:'' }) {
+    const tr = document.createElement('tr');
+    tr.className = 'border-t';
+    tr.innerHTML = \`
+      <td class="py-1 align-top"><input type="text" class="w-full border border-slate-300 rounded-lg p-1" value="\${item.sector || ''}"></td>
+      <td class="py-1 align-top"><input type="text" class="w-full border border-slate-300 rounded-lg p-1" placeholder="Service, limpieza, reparación..." value="\${item.desc || ''}"></td>
+      <td class="py-1 align-top"><input type="number" min="0" step="100" class="w-full border border-slate-300 rounded-lg p-1 text-right" value="\${item.importe || ''}"></td>
+      <td class="py-1 align-top"><button class="px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs">Eliminar</button></td>\`;
+    tbody.appendChild(tr);
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalc));
+    tr.querySelector('button').addEventListener('click', () => { tr.remove(); recalc(); });
+    recalc();
+  }
+  $('#btnAgregarItem').addEventListener('click', () => addRow());
+  addRow();
+
+  function getItems() {
+    return [...tbody.querySelectorAll('tr')].map(tr => {
+      const [sector, desc, imp] = tr.querySelectorAll('input');
+      return { sector: sector.value.trim(), desc: desc.value.trim(), importe: Number(imp.value || 0) };
+    }).filter(x => x.sector || x.desc || x.importe);
+  }
+
+  function recalc() {
+    const items = getItems();
+    const total = items.reduce((a,b) => a + (Number(b.importe)||0), 0);
+    $('#totalCell').textContent = fmtMoney(total);
+  }
+
+  const cargarHistorial = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+  const guardarHistorial = (arr) => localStorage.setItem(LS_KEY, JSON.stringify(arr));
+
+  function renderHistorial() {
+    const hist = cargarHistorial();
+    const tbodyH = $('#tbodyHist');
+    tbodyH.innerHTML = '';
+    hist.slice().reverse().forEach((h, idx) => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-t';
+      tr.innerHTML = \`
+        <td class="py-2">\${h.fecha || ''}</td>
+        <td class="py-2">\${h.cliente || ''}</td>
+        <td class="py-2">\${fmtMoney(h.total||0)}</td>
+        <td class="py-2 flex gap-2"><button class="px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs" data-act="pdf" data-i="\${hist.length - 1 - idx}">PDF</button><button class="px-2 py-1 bg-green-600 text-white rounded-lg hover:bg-green-500 text-xs" data-act="wa" data-i="\${hist.length - 1 - idx}">WhatsApp</button></td>\`;
+      tbodyH.appendChild(tr);
+    });
+  }
+  renderHistorial();
+
+  $('#btnBorrarHist').addEventListener('click', () => {
+    if (confirm('¿Borrar todo el historial local?')) { localStorage.removeItem(LS_KEY); renderHistorial(); }
+  });
+  $('#btnExportarJson').addEventListener('click', () => {
+    const blob = new Blob([localStorage.getItem(LS_KEY) || '[]'], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = 'partes_refrigeracion.json'; a.click(); URL.revokeObjectURL(url);
+  });
+
+  function getData() {
+    const proveedor = $('#proveedor').value.trim();
+    const cuit = $('#cuit').value.trim();
+    const cliente = $('#cliente').value.trim();
+    const fecha = $('#fecha').value.trim();
+    const items = getItems();
+    const total = items.reduce((a,b)=>a+(Number(b.importe)||0),0);
+    if (!cliente || !fecha || items.length === 0) throw new Error('Completá: Cliente, Fecha y al menos un ítem.');
+    return { proveedor, cuit, cliente, fecha, items, total };
+  }
+
+  function ddmmyyyy(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return \`\${d}/\${m}/\${y}\`; }
+
+  function construirVistaPDF(datos){
+    const logo = localStorage.getItem(LS_LOGO);
+    const root = document.createElement('div');
+    root.style.width = '523px';
+    root.style.padding = '16px';
+    root.style.background = '#ffffff';
+    root.style.color = '#0f172a';
+    root.style.fontFamily = 'Segoe UI, Arial, sans-serif';
+
+    const itemsHtml = datos.items.map(it => \`
+      <div style="display:grid;grid-template-columns:1fr auto;align-items:start;gap:12px;border-bottom:1px solid #e2e8f0;padding:10px 0;">
+        <div style="font-size:12px;line-height:1.45;">
+          <div><span style="font-weight:600;">Sector:</span> \${it.sector || '-'}</div>
+          <div><span style="font-weight:600;">Trabajo:</span> \${it.desc || ''}</div>
+        </div>
+        <div style="text-align:right;min-width:140px;">
+          <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.3px;">IMPORTE</div>
+          <div style="font-size:15px;font-weight:800;">\${fmtMoney(it.importe||0)}</div>
+        </div>
+      </div>
+    \`).join('');
+
+    root.innerHTML = \`
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-size:12px;line-height:1.55;">
+          <div><b>Cliente:</b> \${datos.cliente}</div>
+          <div><b>Responsable:</b> \${datos.proveedor || '-'}</div>
+          <div><b>Fecha:</b> \${ddmmyyyy(datos.fecha)}</div>
+        </div>
+        \${logo ? \`<img src="\${logo}" style="height:40px;object-fit:contain;" />\` : ''}
+      </div>
+
+      <div style="margin-top:8px;margin-bottom:12px;">\${itemsHtml}</div>
+
+      <div style="border-top:1px solid #e2e8f0;padding-top:10px;margin-top:10px;display:flex;justify-content:flex-end;">
+        <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.3px;margin-right:8px;">IMPORTE TOTAL</div>
+        <div style="font-size:16px;font-weight:900;">\${fmtMoney(datos.total)}</div>
+      </div>
+
+      <div style="margin-top:16px;font-size:10px;color:#64748b;">Generado \${new Date().toLocaleString('es-AR')}</div>
+    \`;
+
+    document.body.appendChild(root);
+    return root;
+  }
+
+  async function generarPDF(datos) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 36;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const maxW = pageW - margin * 2;
+    const maxH = pageH - margin * 2;
+
+    let card;
+    try {
+      card = construirVistaPDF(datos);
+      const canvas = await html2canvas(card, { scale: 2, backgroundColor: '#ffffff', useCORS: true, letterRendering: true });
+      const iw = canvas.width, ih = canvas.height;
+      const ratio = Math.min(maxW / iw, maxH / ih);
+      const imgW = iw * ratio, imgH = ih * ratio;
+      const imgData = canvas.toDataURL('image/png');
+      doc.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
+    } finally {
+      if (card && card.remove) card.remove();
+    }
+    return doc;
+  }
+
+  async function compartirWhatsApp(datos, doc) {
+    const pdfBlob = doc.output('blob');
+    const filename = \`Parte_Refrigeracion_\${datos.fecha}_\${(datos.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf\`;
+    const resumen = datos.items.slice(0,3).map(it => \`• \${it.sector}: \${it.desc} — \${fmtMoney(it.importe)}\`).join('\n');
+    const msg = \`DETALLE DE TRABAJOS — \${datos.cliente}\nFecha: \${ddmmyyyy(datos.fecha)}\n\${resumen}\${datos.items.length>3?'\n…':''}\nTOTAL: \${fmtMoney(datos.total)}\`;
+
+    try {
+      const file = new File([pdfBlob], filename, { type:'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files:[file] })) {
+        await navigator.share({ files:[file], title:'Parte de Trabajos', text: msg });
+        return;
+      }
+    } catch (e) {}
+
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+    const link = 'https://wa.me/?text=' + encodeURIComponent(msg + '\n\nAdjunto el PDF del trabajo.');
+    window.open(link, '_blank');
+  }
+
+  $('#btnGuardar').addEventListener('click', async () => {
+    try {
+      const d = getData();
+      const hist = cargarHistorial();
+      hist.push({ ...d, ts: Date.now() });
+      guardarHistorial(hist);
+      renderHistorial();
+      alert('Guardado en historial local.');
+    } catch (e) { alert(e.message); }
+  });
+
+  $('#btnPDF').addEventListener('click', async () => {
+    try {
+      const d = getData();
+      const doc = await generarPDF(d);
+      const filename = \`Parte_Refrigeracion_\${d.fecha}_\${(d.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf\`;
+      doc.save(filename);
+    } catch (e) { alert(e.message); }
+  });
+
+  $('#btnWhatsApp').addEventListener('click', async () => {
+    try {
+      const d = getData();
+      const doc = await generarPDF(d);
+      await compartirWhatsApp(d, doc);
+    } catch (e) { alert(e.message); }
+  });
+
+  $('#tbodyHist').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    const i = Number(btn.dataset.i);
+    const hist = cargarHistorial();
+    const d = hist[i];
+    if (!d) return;
+    const doc = await generarPDF(d);
+    if (btn.dataset.act === 'pdf') {
+      const filename = \`Parte_Refrigeracion_\${d.fecha}_\${(d.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf\`;
+      doc.save(filename);
+    } else if (btn.dataset.act === 'wa') {
+      await compartirWhatsApp(d, doc);
+    }
+  });
+
+  // === PWA: registrar Service Worker ===
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW no registrado:', err));
+    });
+  }
+</script>
+</body>
+</html>
