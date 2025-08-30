@@ -10,9 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <style>
-    body { background:#f8fafc; color:#0f172a; }
-  </style>
+  <style>body{background:#f8fafc;color:#0f172a}</style>
 </head>
 <body class="min-h-screen">
   <div class="max-w-3xl mx-auto p-4 sm:p-6">
@@ -108,15 +106,16 @@
   </div>
 
 <script>
-  const $ = (s) => document.querySelector(s);
+  // Helper SIN conflictos con extensiones: usamos `qs` en vez de `$`
+  const qs = (s) => document.querySelector(s);
   const todayISO = () => new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().split('T')[0];
   const fmtMoney = (n) => new Intl.NumberFormat('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }).format(n || 0);
-  const esc = (s) => String(s||'').replace(/[&<>]/g, c => ({'&':'&','<':'<','>':'>'}[c]));
+  const esc = (s) => String(s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
   const LS_KEY = 'partes_refrigeracion_v2';
   const LS_LOGO = 'parte_logo_v1';
 
-  $('#fecha').value = todayISO();
+  qs('#fecha').value = todayISO();
 
   document.addEventListener('change', async (ev) => {
     if (ev.target && ev.target.id === 'logoFile') {
@@ -150,25 +149,26 @@
     });
   }
 
-  const tbody = $('#tbody');
+  const tbody = qs('#tbody');
   function addRow(item = { sector:'', desc:'', importe:'' }) {
     const tr = document.createElement('tr');
     tr.className = 'border-t';
-    tr.innerHTML = \`
-      <td class="py-1 align-top"><input type="text" class="w-full border border-slate-300 rounded-lg p-1" value="\${item.sector || ''}"></td>
-      <td class="py-1 align-top"><input type="text" class="w-full border border-slate-300 rounded-lg p-1" placeholder="Service, limpieza, reparación..." value="\${item.desc || ''}"></td>
-      <td class="py-1 align-top"><input type="number" min="0" step="100" class="w-full border border-slate-300 rounded-lg p-1 text-right" value="\${item.importe || ''}"></td>
-      <td class="py-1 align-top"><button class="px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs">Eliminar</button></td>\`;
+    tr.innerHTML = `
+      <td class="py-1 align-top"><input type="text" class="w-full border border-slate-300 rounded-lg p-1" value="${esc(item.sector)}"></td>
+      <td class="py-1 align-top"><input type="text" class="w-full border border-slate-300 rounded-lg p-1" placeholder="Service, limpieza, reparación..." value="${esc(item.desc)}"></td>
+      <td class="py-1 align-top"><input type="number" min="0" step="100" class="w-full border border-slate-300 rounded-lg p-1 text-right" value="${esc(item.importe)}"></td>
+      <td class="py-1 align-top"><button class="px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs">Eliminar</button></td>`;
     tbody.appendChild(tr);
     tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalc));
     tr.querySelector('button').addEventListener('click', () => { tr.remove(); recalc(); });
     recalc();
   }
-  $('#btnAgregarItem').addEventListener('click', () => addRow());
+  qs('#btnAgregarItem').addEventListener('click', () => addRow());
   addRow();
 
   function getItems() {
-    return [...tbody.querySelectorAll('tr')].map(tr => {
+    const rows = [...tbody.querySelectorAll('tr')];
+    return rows.map(tr => {
       const [sector, desc, imp] = tr.querySelectorAll('input');
       return { sector: sector.value.trim(), desc: desc.value.trim(), importe: Number(imp.value || 0) };
     }).filter(x => x.sector || x.desc || x.importe);
@@ -177,7 +177,7 @@
   function recalc() {
     const items = getItems();
     const total = items.reduce((a,b) => a + (Number(b.importe)||0), 0);
-    $('#totalCell').textContent = fmtMoney(total);
+    qs('#totalCell').textContent = fmtMoney(total);
   }
 
   const cargarHistorial = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
@@ -185,42 +185,42 @@
 
   function renderHistorial() {
     const hist = cargarHistorial();
-    const tbodyH = $('#tbodyHist');
+    const tbodyH = qs('#tbodyHist');
     tbodyH.innerHTML = '';
     hist.slice().reverse().forEach((h, idx) => {
       const tr = document.createElement('tr');
       tr.className = 'border-t';
-      tr.innerHTML = \`
-        <td class="py-2">\${h.fecha || ''}</td>
-        <td class="py-2">\${h.cliente || ''}</td>
-        <td class="py-2">\${fmtMoney(h.total||0)}</td>
-        <td class="py-2 flex gap-2"><button class="px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs" data-act="pdf" data-i="\${hist.length - 1 - idx}">PDF</button><button class="px-2 py-1 bg-green-600 text-white rounded-lg hover:bg-green-500 text-xs" data-act="wa" data-i="\${hist.length - 1 - idx}">WhatsApp</button></td>\`;
+      tr.innerHTML = `
+        <td class="py-2">${h.fecha || ''}</td>
+        <td class="py-2">${esc(h.cliente || '')}</td>
+        <td class="py-2">${fmtMoney(h.total||0)}</td>
+        <td class="py-2 flex gap-2"><button class="px-2 py-1 bg-slate-100 rounded-lg hover:bg-slate-200 text-xs" data-act="pdf" data-i="${hist.length - 1 - idx}">PDF</button><button class="px-2 py-1 bg-green-600 text-white rounded-lg hover:bg-green-500 text-xs" data-act="wa" data-i="${hist.length - 1 - idx}">WhatsApp</button></td>`;
       tbodyH.appendChild(tr);
     });
   }
   renderHistorial();
 
-  $('#btnBorrarHist').addEventListener('click', () => {
+  qs('#btnBorrarHist').addEventListener('click', () => {
     if (confirm('¿Borrar todo el historial local?')) { localStorage.removeItem(LS_KEY); renderHistorial(); }
   });
-  $('#btnExportarJson').addEventListener('click', () => {
+  qs('#btnExportarJson').addEventListener('click', () => {
     const blob = new Blob([localStorage.getItem(LS_KEY) || '[]'], {type:'application/json'});
     const url = URL.createObjectURL(blob); const a = document.createElement('a');
     a.href = url; a.download = 'partes_refrigeracion.json'; a.click(); URL.revokeObjectURL(url);
   });
 
   function getData() {
-    const proveedor = $('#proveedor').value.trim();
-    const cuit = $('#cuit').value.trim();
-    const cliente = $('#cliente').value.trim();
-    const fecha = $('#fecha').value.trim();
+    const proveedor = qs('#proveedor').value.trim();
+    const cuit = qs('#cuit').value.trim();
+    const cliente = qs('#cliente').value.trim();
+    const fecha = qs('#fecha').value.trim();
     const items = getItems();
     const total = items.reduce((a,b)=>a+(Number(b.importe)||0),0);
     if (!cliente || !fecha || items.length === 0) throw new Error('Completá: Cliente, Fecha y al menos un ítem.');
     return { proveedor, cuit, cliente, fecha, items, total };
   }
 
-  function ddmmyyyy(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return \`\${d}/\${m}/\${y}\`; }
+  function ddmmyyyy(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
 
   function construirVistaPDF(datos){
     const logo = localStorage.getItem(LS_LOGO);
@@ -231,38 +231,38 @@
     root.style.color = '#0f172a';
     root.style.fontFamily = 'Segoe UI, Arial, sans-serif';
 
-    const itemsHtml = datos.items.map(it => \`
+    const itemsHtml = datos.items.map(it => `
       <div style="display:grid;grid-template-columns:1fr auto;align-items:start;gap:12px;border-bottom:1px solid #e2e8f0;padding:10px 0;">
         <div style="font-size:12px;line-height:1.45;">
-          <div><span style="font-weight:600;">Sector:</span> \${it.sector || '-'}</div>
-          <div><span style="font-weight:600;">Trabajo:</span> \${it.desc || ''}</div>
+          <div><span style="font-weight:600;">Sector:</span> ${esc(it.sector || '-')}</div>
+          <div><span style="font-weight:600;">Trabajo:</span> ${esc(it.desc || '')}</div>
         </div>
         <div style="text-align:right;min-width:140px;">
           <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.3px;">IMPORTE</div>
-          <div style="font-size:15px;font-weight:800;">\${fmtMoney(it.importe||0)}</div>
+          <div style="font-size:15px;font-weight:800;">${fmtMoney(it.importe||0)}</div>
         </div>
       </div>
-    \`).join('');
+    `).join('');
 
-    root.innerHTML = \`
+    root.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div style="font-size:12px;line-height:1.55;">
-          <div><b>Cliente:</b> \${datos.cliente}</div>
-          <div><b>Responsable:</b> \${datos.proveedor || '-'}</div>
-          <div><b>Fecha:</b> \${ddmmyyyy(datos.fecha)}</div>
+          <div><b>Cliente:</b> ${esc(datos.cliente)}</div>
+          <div><b>Responsable:</b> ${esc(datos.proveedor || '-')}</div>
+          <div><b>Fecha:</b> ${ddmmyyyy(datos.fecha)}</div>
         </div>
-        \${logo ? \`<img src="\${logo}" style="height:40px;object-fit:contain;" />\` : ''}
+        ${logo ? `<img src="${logo}" style="height:40px;object-fit:contain;" />` : ''}
       </div>
 
-      <div style="margin-top:8px;margin-bottom:12px;">\${itemsHtml}</div>
+      <div style="margin-top:8px;margin-bottom:12px;">${itemsHtml}</div>
 
       <div style="border-top:1px solid #e2e8f0;padding-top:10px;margin-top:10px;display:flex;justify-content:flex-end;">
         <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.3px;margin-right:8px;">IMPORTE TOTAL</div>
-        <div style="font-size:16px;font-weight:900;">\${fmtMoney(datos.total)}</div>
+        <div style="font-size:16px;font-weight:900;">${fmtMoney(datos.total)}</div>
       </div>
 
-      <div style="margin-top:16px;font-size:10px;color:#64748b;">Generado \${new Date().toLocaleString('es-AR')}</div>
-    \`;
+      <div style="margin-top:16px;font-size:10px;color:#64748b;">Generado ${new Date().toLocaleString('es-AR')}</div>
+    `;
 
     document.body.appendChild(root);
     return root;
@@ -294,9 +294,9 @@
 
   async function compartirWhatsApp(datos, doc) {
     const pdfBlob = doc.output('blob');
-    const filename = \`Parte_Refrigeracion_\${datos.fecha}_\${(datos.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf\`;
-    const resumen = datos.items.slice(0,3).map(it => \`• \${it.sector}: \${it.desc} — \${fmtMoney(it.importe)}\`).join('\n');
-    const msg = \`DETALLE DE TRABAJOS — \${datos.cliente}\nFecha: \${ddmmyyyy(datos.fecha)}\n\${resumen}\${datos.items.length>3?'\n…':''}\nTOTAL: \${fmtMoney(datos.total)}\`;
+    const filename = `Parte_Refrigeracion_${datos.fecha}_${(datos.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf`;
+    const resumen = datos.items.slice(0,3).map(it => `• ${it.sector}: ${it.desc} — ${fmtMoney(it.importe)}`).join('\n');
+    const msg = `DETALLE DE TRABAJOS — ${datos.cliente}\nFecha: ${ddmmyyyy(datos.fecha)}\n${resumen}${datos.items.length>3?'\n…':''}\nTOTAL: ${fmtMoney(datos.total)}`;
 
     try {
       const file = new File([pdfBlob], filename, { type:'application/pdf' });
@@ -312,7 +312,7 @@
     window.open(link, '_blank');
   }
 
-  $('#btnGuardar').addEventListener('click', async () => {
+  qs('#btnGuardar').addEventListener('click', async () => {
     try {
       const d = getData();
       const hist = cargarHistorial();
@@ -323,16 +323,16 @@
     } catch (e) { alert(e.message); }
   });
 
-  $('#btnPDF').addEventListener('click', async () => {
+  qs('#btnPDF').addEventListener('click', async () => {
     try {
       const d = getData();
       const doc = await generarPDF(d);
-      const filename = \`Parte_Refrigeracion_\${d.fecha}_\${(d.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf\`;
+      const filename = `Parte_Refrigeracion_${d.fecha}_${(d.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf`;
       doc.save(filename);
     } catch (e) { alert(e.message); }
   });
 
-  $('#btnWhatsApp').addEventListener('click', async () => {
+  qs('#btnWhatsApp').addEventListener('click', async () => {
     try {
       const d = getData();
       const doc = await generarPDF(d);
@@ -340,7 +340,7 @@
     } catch (e) { alert(e.message); }
   });
 
-  $('#tbodyHist').addEventListener('click', async (ev) => {
+  qs('#tbodyHist').addEventListener('click', async (ev) => {
     const btn = ev.target.closest('button');
     if (!btn) return;
     const i = Number(btn.dataset.i);
@@ -349,14 +349,14 @@
     if (!d) return;
     const doc = await generarPDF(d);
     if (btn.dataset.act === 'pdf') {
-      const filename = \`Parte_Refrigeracion_\${d.fecha}_\${(d.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf\`;
+      const filename = `Parte_Refrigeracion_${d.fecha}_${(d.cliente||'').replace(/[^a-z0-9_-]+/gi,'_')}.pdf`;
       doc.save(filename);
     } else if (btn.dataset.act === 'wa') {
       await compartirWhatsApp(d, doc);
     }
   });
 
-  // === PWA: registrar Service Worker ===
+  // PWA: registrar Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW no registrado:', err));
@@ -365,3 +365,4 @@
 </script>
 </body>
 </html>
+
